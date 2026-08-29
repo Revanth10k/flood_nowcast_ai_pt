@@ -1,6 +1,5 @@
 import networkx as nx
 import math
-import random
 
 CLEARANCE_LIMITS = {
     "bike": 10.0,
