@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HydroAI | Safe Urban Flood Transit</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <style>
+    #map { height: 100vh; width: 100%; z-index: 1; }
+    .glass-panel { background: rgba(15, 23, 42, 0.94); backdrop-filter: blur(12px); }
+    .sensor-pin { display: flex; align-items: center; justify-content: center; border-radius: 50%; color: white; }
+    .sensor-pulse-critical { background: #ef4444; border: 2px solid #fff; box-shadow: 0 0 15px #ef4444; }
+    .sensor-pulse-nominal { background: #10b981; border: 2px solid #fff; box-shadow: 0 0 10px #10b981; }
+    .pump-pin { background: #6366f1; border: 2px solid #fff; box-shadow: 0 0 12px #6366f1; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 flex h-screen overflow-hidden font-sans">
+
+  <!-- ================= AUTH MODAL ================= -->
+  <div id="authModal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[9999] flex items-center justify-center p-4">
+    <div class="glass-panel border border-slate-700 w-full max-w-md p-6 rounded-2xl shadow-2xl space-y-5">
+      <div class="text-center space-y-1.5">
+        <div class="inline-flex p-3 bg-cyan-950/70 border border-cyan-500/30 rounded-2xl text-cyan-400 text-3xl">
+          <i class="fa-solid fa-water"></i>
+        </div>
+        <h2 class="text-2xl font-black tracking-tight text-white">HydroAI Portal</h2>
+        <p class="text-xs text-slate-400">SIH 26085 • Real-Time Inundation Routing & SCADA</p>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3 p-1 bg-slate-900 rounded-xl border border-slate-800">
+        <button id="tabCommuter" onclick="switchAuthTab('commuter')" class="py-2.5 text-xs font-bold rounded-lg transition bg-cyan-600 text-white shadow">
+          <i class="fa-solid fa-car mr-1"></i> Public Commuter
+        </button>
+        <button id="tabOfficial" onclick="switchAuthTab('official')" class="py-2.5 text-xs font-bold rounded-lg transition text-slate-400 hover:text-slate-200">
+          <i class="fa-solid fa-building-shield mr-1"></i> Municipal Authority
+        </button>
+      </div>
+
+      <div id="commuterView" class="space-y-4">
+        <div class="bg-slate-900/60 p-3.5 rounded-xl border border-slate-800 text-xs text-slate-300 space-y-2">
+          <div class="font-semibold text-cyan-400 flex items-center gap-1.5">
+            <i class="fa-solid fa-shield-halved"></i> Live Safe Navigation
+          </div>
+          <p>Drag the map markers to calculate real-time detours around flooded road blocks.</p>
+        </div>
+        <button onclick="enterAsCommuter()" class="w-full py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 font-bold rounded-xl text-sm transition shadow-lg shadow-cyan-950/50">
+          Start Navigation <i class="fa-solid fa-arrow-right ml-1"></i>
+        </button>
+      </div>
+
+      <form id="officialForm" onsubmit="handleOfficialLogin(event)" class="hidden space-y-4">
+        <div class="space-y-3">
+          <div>
+            <label class="text-[11px] font-semibold text-slate-300 uppercase tracking-wider block mb-1">Officer / Ward ID</label>
+            <input type="text" id="officerId" value="GHMC-WARD-04" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500" required />
+          </div>
+          <div>
+            <label class="text-[11px] font-semibold text-slate-300 uppercase tracking-wider block mb-1">Passcode</label>
+            <input type="password" id="officerPass" placeholder="Enter password (sih2026)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500" required />
+            <p class="text-[10px] text-slate-500 mt-1">Default passcode: <span class="text-cyan-400 font-mono font-bold">sih2026</span></p>
+          </div>
+        </div>
+        <div id="loginErr" class="hidden text-rose-400 text-xs font-semibold bg-rose-950/40 p-2 rounded border border-rose-700/50">
+          Invalid credentials. Use passcode: sih2026
+        </div>
+        <button type="submit" class="w-full py-3 bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 font-bold rounded-xl text-sm transition shadow-lg shadow-indigo-950/50">
+          Authenticate Municipal Access <i class="fa-solid fa-lock ml-1"></i>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= SIDEBAR ================= -->
+  <aside class="w-[410px] glass-panel flex flex-col justify-between shadow-2xl z-[1000] border-r border-slate-800 p-4 overflow-y-auto">
+    <div class="space-y-4">
+      
+      <!-- Top Bar -->
+      <div class="border-b border-slate-800 pb-2.5 flex items-center justify-between">
+        <div>
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-water text-cyan-400 text-xl"></i>
+            <h1 class="text-lg font-bold tracking-wide">HydroAI</h1>
+          </div>
+          <p id="roleLabel" class="text-[11px] text-slate-400">Live Commuter Navigation</p>
+        </div>
+        <button onclick="openAuthModal()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold border border-slate-700 transition">
+          <i class="fa-solid fa-right-from-bracket mr-1"></i> Switch Role
+        </button>
+      </div>
+
+      <!-- ================= COMMUTER CONTROLS ================= -->
+      <div id="commuterControls" class="space-y-3.5">
+        
+        <div class="bg-red-950/40 border border-red-500/40 p-3 rounded-xl flex items-center gap-3">
+          <i class="fa-solid fa-ban text-red-500 text-xl"></i>
+          <div>
+            <div class="text-xs font-bold text-red-300">Flooded Roadblocks Active</div>
+            <div class="text-[10px] text-slate-400">Red streets exceed vehicle clearance limit and are closed.</div>
+          </div>
+        </div>
+
+        <!-- Start & Destination Card -->
+        <div class="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 space-y-2.5 text-xs">
+          <span class="font-bold text-slate-200 block text-[11px] uppercase tracking-wider">Trip Waypoints</span>
+          
+          <div class="flex items-center gap-2.5 bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+            <span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span>
+            <div class="flex-1">
+              <div class="text-[9px] text-slate-500 uppercase">Starting Point (Marker A)</div>
+              <div id="originText" class="font-semibold text-slate-200 text-xs">Lat: 17.4400, Lon: 78.4900</div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2.5 bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+            <div class="flex-1">
+              <div class="text-[9px] text-slate-500 uppercase">Destination Point (Marker B)</div>
+              <div id="destText" class="font-semibold text-slate-200 text-xs">Lat: 17.4550, Lon: 78.5050</div>
+            </div>
+          </div>
+
+          <div class="text-[10px] text-cyan-300/80 pt-1 flex items-center gap-1.5">
+            <i class="fa-solid fa-arrows-up-down-left-right text-cyan-400"></i> Drag Marker A or B on the map to re-route live.
+          </div>
+        </div>
+
+        <!-- Vehicle Clearance Dropdown -->
+        <div class="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 space-y-2 text-xs">
+          <label class="font-bold text-slate-200 block text-[11px] uppercase tracking-wider">Vehicle Type & Clearance</label>
+          <select id="vehicleSelect" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-cyan-500 font-medium text-xs">
+            <option value="sedan">Sedan (Max Safe Depth: 18 cm)</option>
+            <option value="bike">Two-Wheeler / Bike (Max Safe Depth: 10 cm)</option>
+            <option value="suv">SUV / 4x4 (Max Safe Depth: 30 cm)</option>
+            <option value="ambulance">Emergency / Ambulance (Max Safe Depth: 35 cm)</option>
+          </select>
+        </div>
+
+        <!-- Navigation Buttons -->
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="computeSafeTransit()" class="py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 font-bold rounded-xl text-xs transition shadow-lg shadow-cyan-950/50 flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-route"></i> Calculate Route
+          </button>
+          <button onclick="routeToNearestShelter()" class="py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-emerald-400 font-bold rounded-xl text-xs transition flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-tent"></i> Evacuate to Shelter
+          </button>
+        </div>
+      </div>
+
+      <!-- ================= MUNICIPAL ADMIN PANEL ================= -->
+      <div id="officialControls" class="hidden space-y-3">
+        <div class="bg-slate-900/90 p-3.5 rounded-xl border border-slate-800 space-y-2.5 text-xs">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-1.5">
+            <span class="font-bold text-indigo-400 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+              <i class="fa-solid fa-tower-broadcast text-indigo-400"></i> SCADA & Sensor Controls
+            </span>
+            <span class="bg-indigo-950 text-indigo-300 border border-indigo-700 text-[9px] px-1.5 py-0.5 rounded font-mono">ADMIN MODE</span>
+          </div>
+
+          <div class="space-y-2 pt-1">
+            <div>
+              <div class="flex justify-between text-[11px] mb-1 font-medium">
+                <span class="text-slate-300">Live Simulation Rainfall</span>
+                <span id="rainVal" class="text-cyan-400 font-bold">80 mm/hr</span>
+              </div>
+              <input type="range" id="rainInput" min="10" max="150" step="5" value="80" class="w-full accent-cyan-400 cursor-pointer h-1.5 bg-slate-700 rounded-lg appearance-none" />
+            </div>
+
+            <div class="flex items-center justify-between pt-1 border-t border-slate-800 text-[11px]">
+              <label for="drainClog" class="text-slate-300 cursor-pointer flex items-center gap-1.5">
+                <i class="fa-solid fa-triangle-exclamation text-amber-400"></i> Drain Clogging / Surcharge
+              </label>
+              <input type="checkbox" id="drainClog" checked class="accent-amber-400 w-4 h-4 cursor-pointer" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 pt-1">
+            <div class="bg-slate-950 p-2 rounded-lg border border-slate-800">
+              <div class="text-slate-400 text-[9px]">Underpass Depth</div>
+              <div id="sensorUnderpass" class="text-sm font-black text-rose-400 mt-0.5">44.8 cm</div>
+              <div class="text-[8px] text-rose-500 font-medium">Sensor #SN-02 (Critical)</div>
+            </div>
+            <div class="bg-slate-950 p-2 rounded-lg border border-slate-800">
+              <div class="text-slate-400 text-[9px]">Drain Outflow</div>
+              <div id="sensorDischarge" class="text-sm font-black text-emerald-400 mt-0.5">2.8 m³/s</div>
+              <div class="text-[8px] text-emerald-500 font-medium">Nominal Discharge</div>
+            </div>
+          </div>
+
+          <div class="space-y-1.5 pt-1 border-t border-slate-800">
+            <div class="flex justify-between items-center text-[10px]">
+              <span class="text-slate-300 font-semibold">Auxiliary Sump Pumps:</span>
+              <button id="pumpToggleBtn" onclick="toggleAuxPumps()" class="px-2 py-0.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded font-bold transition text-[9px]">
+                Deploy Aux Pump
+              </button>
+            </div>
+            <div class="grid grid-cols-2 gap-2 pt-1">
+              <button onclick="triggerCivicBroadcast()" class="py-2 bg-rose-700/90 hover:bg-rose-600 text-white font-bold rounded-lg transition text-[10px] flex items-center justify-center gap-1">
+                <i class="fa-solid fa-bullhorn"></i> Send CAP Alert
+              </button>
+              <button onclick="exportIncidentLog()" class="py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold rounded-lg transition text-[10px] flex items-center justify-center gap-1">
+                <i class="fa-solid fa-file-export"></i> Export Log
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Output Telemetry Card with Google Maps Button -->
+    <div id="routeOutput" class="hidden mt-2 bg-slate-900/95 p-3.5 rounded-xl border border-slate-700 text-xs space-y-2.5 shadow-2xl">
+      <div class="flex items-center justify-between">
+        <span class="font-bold text-emerald-400 flex items-center gap-1">
+          <i class="fa-solid fa-circle-check"></i> Safe Route Active
+        </span>
+        <span id="avoidedCount" class="text-[9px] bg-red-950 text-red-300 px-1.5 py-0.5 rounded border border-red-700 font-semibold">Roadblocks Avoided</span>
+      </div>
+      
+      <div class="grid grid-cols-3 gap-1 text-slate-300 py-1.5 border-y border-slate-800 text-center">
+        <div>
+          <span class="text-slate-500 text-[9px] block">Distance</span>
+          <span id="distVal" class="font-bold text-slate-200 text-xs">-- km</span>
+        </div>
+        <div>
+          <span class="text-slate-500 text-[9px] block">Est. Time</span>
+          <span id="timeEstVal" class="font-bold text-slate-200 text-xs">-- mins</span>
+        </div>
+        <div>
+          <span class="text-slate-500 text-[9px] block">Max Depth</span>
+          <span id="maxDepthVal" class="font-bold text-cyan-400 text-xs">-- cm</span>
+        </div>
+      </div>
+      
+      <a id="gmapsBtn" href="#" target="_blank" class="flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 rounded-xl font-bold text-white transition text-xs shadow-lg shadow-emerald-950/50">
+        <i class="fa-solid fa-diamond-turn-right text-sm"></i> Open Google Maps Navigation
+      </a>
+    </div>
+  </aside>
+
+  <!-- ================= MAP CONTAINER ================= -->
+  <main class="flex-1 relative">
+    <div id="map"></div>
+
+    <div class="absolute bottom-6 right-6 glass-panel p-3.5 rounded-xl border border-slate-800 z-[1000] text-xs space-y-1.5 shadow-xl">
+      <div class="font-bold text-slate-200 mb-1 border-b border-slate-800 pb-1 text-[11px]">Road Legend</div>
+      <div class="flex items-center gap-2">
+        <span class="w-4 h-2 bg-red-600 rounded"></span>
+        <span class="text-slate-300 font-semibold text-[11px]">Flooded Roadblock (Closed)</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="w-4 h-1.5 bg-amber-500 rounded"></span>
+        <span class="text-amber-300 text-[11px]">Caution Area (10-20 cm)</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="w-4 h-1 bg-slate-600 rounded"></span>
+        <span class="text-slate-400 text-[11px]">Normal Open Street</span>
+      </div>
+      <div class="flex items-center gap-2 pt-1 border-t border-slate-800">
+        <span class="w-4 h-2 bg-cyan-400 rounded"></span>
+        <span class="text-cyan-300 font-semibold text-[11px]">Active Safe Detour</span>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    let currentRole = "commuter";
+    let auxPumpActive = false;
+    let liveSimRain = 80.0;
+
+    const VEHICLE_LIMITS = {
+      "bike": 10.0,
+      "sedan": 18.0,
+      "suv": 30.0,
+      "ambulance": 35.0
+    };
+
+    function openAuthModal() { document.getElementById('authModal').classList.remove('hidden'); }
+
+    function switchAuthTab(tab) {
+      const tabCommuter = document.getElementById('tabCommuter');
+      const tabOfficial = document.getElementById('tabOfficial');
+      const commuterView = document.getElementById('commuterView');
+      const officialForm = document.getElementById('officialForm');
+
+      if (tab === 'commuter') {
+        tabCommuter.className = "py-2.5 text-xs font-bold rounded-lg transition bg-cyan-600 text-white shadow";
+        tabOfficial.className = "py-2.5 text-xs font-bold rounded-lg transition text-slate-400 hover:text-slate-200";
+        commuterView.classList.remove('hidden');
+        officialForm.classList.add('hidden');
+      } else {
+        tabOfficial.className = "py-2.5 text-xs font-bold rounded-lg transition bg-indigo-600 text-white shadow";
+        tabCommuter.className = "py-2.5 text-xs font-bold rounded-lg transition text-slate-400 hover:text-slate-200";
+        officialForm.classList.remove('hidden');
+        commuterView.classList.add('hidden');
+      }
+    }
+
+    function enterAsCommuter() {
+      currentRole = "commuter";
+      document.getElementById('roleLabel').innerText = "Live Commuter Navigation";
+      document.getElementById('commuterControls').classList.remove('hidden');
+      document.getElementById('officialControls').classList.add('hidden');
+      document.getElementById('authModal').classList.add('hidden');
+      if (map.hasLayer(officialSensorLayer)) map.removeLayer(officialSensorLayer);
+      map.invalidateSize();
+    }
+
+    function handleOfficialLogin(e) {
+      e.preventDefault();
+      const pass = document.getElementById('officerPass').value;
+      const officerId = document.getElementById('officerId').value;
+      const err = document.getElementById('loginErr');
+
+      if (pass === "sih2026" || pass === "admin123") {
+        currentRole = "official";
+        err.classList.add('hidden');
+        document.getElementById('roleLabel').innerHTML = `Role: <span class="text-indigo-400 font-bold">${officerId} (Official)</span>`;
+        document.getElementById('commuterControls').classList.add('hidden');
+        document.getElementById('officialControls').classList.remove('hidden');
+        document.getElementById('authModal').classList.add('hidden');
+
+        renderOfficialSensors();
+        officialSensorLayer.addTo(map);
+        map.invalidateSize();
+      } else {
+        err.classList.remove('hidden');
+      }
+    }
+
+    function toggleAuxPumps() {
+      auxPumpActive = !auxPumpActive;
+      const btn = document.getElementById('pumpToggleBtn');
+      if (auxPumpActive) {
+        btn.innerText = "Deactivate Aux";
+        btn.className = "px-2 py-0.5 bg-rose-600 hover:bg-rose-500 text-white rounded font-bold transition text-[9px]";
+      } else {
+        btn.innerText = "Deploy Aux Pump";
+        btn.className = "px-2 py-0.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded font-bold transition text-[9px]";
+      }
+      updateFloodLayer().then(() => computeSafeTransit());
+    }
+
+    function triggerCivicBroadcast() {
+      alert("EMERGENCY BROADCAST DISPATCHED:\nCommon Alerting Protocol (CAP) SMS sent to registered citizens in Ward 04.");
+    }
+
+    function exportIncidentLog() {
+      const log = `HYDROAI MUNICIPAL FLOOD INCIDENT REPORT\nGenerated: ${new Date().toLocaleString()}\nUnderpass Sensor SN-02: ${document.getElementById('sensorUnderpass').innerText}\nAux Pumps: ${auxPumpActive ? 'DEPLOYED' : 'STANDBY'}\nHigh Risk Roadblocks: Underpass Lowland Corridor (Closed to Sedans/Bikes)`;
+      const blob = new Blob([log], { type: 'text/plain' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `Flood_Incident_Log_${Date.now()}.txt`;
+      a.click();
+    }
+
+    // --- Leaflet Map Setup ---
+    const map = L.map('map', { zoomControl: true }).setView([17.4475, 78.5000], 14);
+    
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+
+    let streetNetworkLayer = L.layerGroup().addTo(map);
+    let safeRouteLayer = L.layerGroup().addTo(map);
+    let officialSensorLayer = L.layerGroup();
+
+    let startMarker = L.marker([17.4400, 78.4900], { draggable: true, title: "Start Location (Marker A)" }).addTo(map).bindPopup("<b>Start (Marker A)</b><br>Drag me anywhere on the map.");
+    let endMarker = L.marker([17.4550, 78.5050], { draggable: true, title: "Destination (Marker B)" }).addTo(map).bindPopup("<b>Destination (Marker B)</b><br>Drag me to change destination.");
+
+    function updateMarkerLabels() {
+      const s = startMarker.getLatLng();
+      const e = endMarker.getLatLng();
+      document.getElementById('originText').innerText = `Lat: ${s.lat.toFixed(4)}, Lon: ${s.lng.toFixed(4)}`;
+      document.getElementById('destText').innerText = `Lat: ${e.lat.toFixed(4)}, Lon: ${e.lng.toFixed(4)}`;
+    }
+
+    startMarker.on('drag', () => { updateMarkerLabels(); computeSafeTransit(); });
+    endMarker.on('drag', () => { updateMarkerLabels(); computeSafeTransit(); });
+    startMarker.on('dragend', () => { updateMarkerLabels(); computeSafeTransit(); });
+    endMarker.on('dragend', () => { updateMarkerLabels(); computeSafeTransit(); });
+
+    const iotStations = [
+      { id: "SN-01", name: "Residential Outfall Sensor", type: "depth_sensor", coords: [17.4410, 78.4910], baseDepth: 6.2, battery: "98%" },
+      { id: "SN-02", name: "Underpass Sump Depth Sensor", type: "depth_sensor", coords: [17.4495, 78.4990], baseDepth: 44.8, battery: "91%" },
+      { id: "SN-03", name: "Market Junction Flow Probe", type: "depth_sensor", coords: [17.4455, 78.4960], baseDepth: 16.8, battery: "95%" },
+      { id: "PUMP-01", name: "Secunderabad Central Sump", type: "pump_station", coords: [17.4480, 78.5020], capacity: "4.5 m³/s", activePumps: 2, totalPumps: 3 },
+      { id: "PUMP-02", name: "Ring Road Discharge Pump", type: "pump_station", coords: [17.4440, 78.5080], capacity: "3.2 m³/s", activePumps: 1, totalPumps: 2 }
+    ];
+
+    function renderOfficialSensors() {
+      officialSensorLayer.clearLayers();
+      const rain = currentRole === "official" ? parseFloat(document.getElementById('rainInput').value) : liveSimRain;
+      const clogged = currentRole === "official" ? document.getElementById('drainClog').checked : true;
+
+      iotStations.forEach(station => {
+        if (station.type === "depth_sensor") {
+          const liveDepth = (station.baseDepth * (rain / 80) * (clogged ? 1.4 : 1.0) * (auxPumpActive ? 0.75 : 1.0)).toFixed(1);
+          const isCritical = liveDepth > 25.0;
+          const customIcon = L.divIcon({
+            html: `<div class="sensor-pin ${isCritical ? 'sensor-pulse-critical' : 'sensor-pulse-nominal'}" style="width: 28px; height: 28px;"><i class="fa-solid fa-water-ladder text-xs"></i></div>`,
+            iconSize: [28, 28],
+            iconAnchor: [14, 14]
+          });
+          const popup = `<div style="font-size:12px; line-height:1.4;"><b>${station.name}</b><br/>ID: <code>${station.id}</code><br/>Live Depth: <b>${liveDepth} cm</b><br/>Battery: ${station.battery}</div>`;
+          L.marker(station.coords, { icon: customIcon }).bindPopup(popup).addTo(officialSensorLayer);
+        } else {
+          const customIcon = L.divIcon({
+            html: `<div class="sensor-pin pump-pin" style="width: 30px; height: 30px;"><i class="fa-solid fa-gears text-xs"></i></div>`,
+            iconSize: [30, 30],
+            iconAnchor: [15, 15]
+          });
+          const popup = `<div style="font-size:12px; line-height:1.4;"><b>${station.name}</b><br/>Capacity: ${station.capacity}<br/>Status: <b>ONLINE (SCADA)</b></div>`;
+          L.marker(station.coords, { icon: customIcon }).bindPopup(popup).addTo(officialSensorLayer);
+        }
+      });
+    }
+
+    async function updateFloodLayer() {
+      const rain = currentRole === "official" ? parseFloat(document.getElementById('rainInput').value) : liveSimRain;
+      const clogged = currentRole === "official" ? document.getElementById('drainClog').checked : true;
+      const vehicle = document.getElementById('vehicleSelect').value;
+      const clearance = VEHICLE_LIMITS[vehicle] || 18.0;
+
+      if (currentRole === "official") {
+        document.getElementById('rainVal').innerText = `${rain} mm/hr`;
+        const fakeUnderpassDepth = (parseFloat(rain) * 0.55 * (clogged ? 1.5 : 1.0) * (auxPumpActive ? 0.7 : 1.0)).toFixed(1);
+        const fakeDischarge = (Math.max(0.8, (rain * 0.035))).toFixed(1);
+        document.getElementById('sensorUnderpass').innerText = `${fakeUnderpassDepth} cm`;
+        document.getElementById('sensorDischarge').innerText = `${fakeDischarge} m³/s`;
+        renderOfficialSensors();
+      }
+
+      try {
+        const res = await fetch(`/api/nowcast?rain_rate_mm=${rain}&forecast_min=60&drain_clogged=${clogged}`);
+        const data = await res.json();
+        
+        streetNetworkLayer.clearLayers();
+        L.geoJSON(data, {
+          style: (f) => {
+            const depth = f.properties.water_depth_cm;
+            const isBlocked = depth >= clearance;
+            const isCaution = depth >= 10.0 && depth < clearance;
+            
+            // Varied Color Palette:
+            // Blocked = Bright Red (#ef4444)
+            // Caution = Amber (#f59e0b)
+            // Open = Clean Slate Grey (#64748b)
+            return {
+              color: isBlocked ? '#ef4444' : isCaution ? '#f59e0b' : '#64748b',
+              weight: isBlocked ? 8 : isCaution ? 5 : 3,
+              opacity: isBlocked ? 0.95 : isCaution ? 0.8 : 0.4
+            };
+          },
+          onEachFeature: (f, l) => {
+            const depth = f.properties.water_depth_cm;
+            const isBlocked = depth >= clearance;
+            const isCaution = depth >= 10.0 && depth < clearance;
+            const status = isBlocked 
+              ? '<b style="color:#ef4444;">⛔ CLOSED (ROADBLOCK)</b>' 
+              : isCaution 
+              ? '<b style="color:#f59e0b;">⚠️ CAUTION (MODERATE FLOOD)</b>' 
+              : '<b style="color:#10b981;">✅ OPEN / PASSABLE</b>';
+            l.bindPopup(`<strong>${f.properties.street_name}</strong><br/>Water Depth: <b>${depth} cm</b><br/>Status: ${status}`);
+          }
+        }).addTo(streetNetworkLayer);
+      } catch (err) {
+        console.warn("Backend offline or waiting for connection.", err);
+      }
+    }
+
+    async function computeSafeTransit() {
+      const vehicle = document.getElementById('vehicleSelect').value;
+      const rain = currentRole === "official" ? parseFloat(document.getElementById('rainInput').value) : liveSimRain;
+      const clogged = currentRole === "official" ? document.getElementById('drainClog').checked : true;
+
+      const start = startMarker.getLatLng();
+      const end = endMarker.getLatLng();
+
+      try {
+        const res = await fetch("/api/route", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            start_coords: [start.lat, start.lng],
+            end_coords: [end.lat, end.lng],
+            vehicle_type: vehicle,
+            rain_rate_mm: parseFloat(rain),
+            forecast_min: 60,
+            drain_clogged: clogged
+          })
+        });
+        const data = await res.json();
+
+        safeRouteLayer.clearLayers();
+
+        if (data.status === "success") {
+          // Render the safe detour line in cyan-blue (#06b6d4)
+          if (data.coordinates && data.coordinates.length > 0) {
+            L.polyline(data.coordinates, { color: '#06b6d4', weight: 6, opacity: 0.95 }).addTo(safeRouteLayer);
+          }
+
+          document.getElementById('routeOutput').classList.remove('hidden');
+          document.getElementById('distVal').innerText = `${data.distance_km} km`;
+          document.getElementById('timeEstVal').innerText = `${data.estimated_time_min} mins`;
+          document.getElementById('maxDepthVal').innerText = `${data.max_depth_cm} cm`;
+          document.getElementById('avoidedCount').innerText = `Avoids ${data.avoided_segments_count} Roadblocks`;
+          
+          const gmapsBtn = document.getElementById('gmapsBtn');
+          if (data.google_maps_url) {
+            gmapsBtn.href = data.google_maps_url;
+          }
+        }
+      } catch (err) {
+        console.error("Routing error:", err);
+      }
+    }
+
+    function routeToNearestShelter() {
+      endMarker.setLatLng([17.4550, 78.5050]);
+      updateMarkerLabels();
+      computeSafeTransit();
+    }
+
+    document.getElementById('rainInput')?.addEventListener('input', () => { updateFloodLayer(); computeSafeTransit(); });
+    document.getElementById('drainClog')?.addEventListener('change', () => { updateFloodLayer(); computeSafeTransit(); });
+    document.getElementById('vehicleSelect')?.addEventListener('change', () => { updateFloodLayer(); computeSafeTransit(); });
+
+    updateMarkerLabels();
+    updateFloodLayer().then(() => computeSafeTransit());
+
+    setTimeout(() => { map.invalidateSize(); }, 250);
+  </script>
+</body>
+</html>
