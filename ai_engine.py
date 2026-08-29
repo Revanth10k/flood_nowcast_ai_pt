@@ -40,11 +40,7 @@ model = HydroDrainageGNN(in_features=4, hidden_dim=32)
 model.eval()
 
 def predict_street_depths(rain_rate_mm: float = 85.0, forecast_min: int = 60, drain_clogged: bool = True, use_1d2d_coupled: bool = True) -> dict:
-    """
-    Coupled 1D-2D Hydrodynamic Simulation Engine.
-    """
-    fluctuation = random.uniform(0.92, 1.08)
-    intensity_ratio = max(0.2, (rain_rate_mm * fluctuation) / 60.0)
+    intensity_ratio = max(0.2, rain_rate_mm / 60.0)
     clog_factor = 1.85 if (drain_clogged and use_1d2d_coupled) else (1.25 if drain_clogged else 1.0)
 
     underpass_depth = round(28.0 * intensity_ratio * clog_factor, 1)
@@ -60,67 +56,52 @@ def predict_street_depths(rain_rate_mm: float = 85.0, forecast_min: int = 60, dr
         "street_0_4": round(bypass_depth * 0.8, 1),
     }
 
-def get_detailed_sewage_telemetry() -> dict:
+def get_detailed_sensor_telemetry() -> dict:
     """
-    Generates real-time SCADA telemetry for subsurface drainage conduits,
-    including hydraulic head, velocity, siltation levels, and surcharge backflow index.
+    Simulates real-time hardware health, ultrasonic water levels,
+    flow velocities, and battery telemetry for IoT sewer and surface stations.
     """
-    t_seed = time.time()
-    random.seed(int(t_seed))
-
     return {
-        "pipe_0_1": {
-            "capacity_pct": round(random.uniform(62.0, 68.0), 1),
-            "flow_rate_m3s": round(random.uniform(1.6, 1.9), 2),
-            "flow_velocity_ms": round(random.uniform(1.2, 1.5), 2),
-            "hydraulic_head_m": round(random.uniform(2.1, 2.4), 2),
-            "silt_buildup_pct": round(random.uniform(24.0, 30.0), 1),
-            "status": "Nominal Flow",
-            "surcharging": False
+        "SN-01": {
+            "name": "1D Subsurface Flow Node (Inlet Conduit)",
+            "health_status": "Optimal",
+            "health_pct": 98.4,
+            "battery_v": 12.6,
+            "signal_dbm": -64,
+            "flow_speed_ms": round(random.uniform(1.4, 1.8), 2),
+            "discharge_m3s": round(random.uniform(1.8, 2.2), 2),
+            "water_depth_cm": round(random.uniform(7.8, 9.4), 1),
+            "hydraulic_head_m": 2.3,
+            "silt_buildup_pct": 22.0,
+            "surcharge_risk": "NOMINAL",
+            "last_ping": "1 sec ago"
         },
-        "pipe_1_2": {
-            "capacity_pct": round(random.uniform(94.0, 98.5), 1),
-            "flow_rate_m3s": round(random.uniform(3.4, 3.8), 2),
-            "flow_velocity_ms": round(random.uniform(2.6, 3.1), 2),
-            "hydraulic_head_m": round(random.uniform(4.2, 4.7), 2),
-            "silt_buildup_pct": round(random.uniform(68.0, 76.0), 1),
-            "status": "Critical Surcharge Warning",
-            "surcharging": True
+        "SN-02": {
+            "name": "2D Surface Underpass Inundation Sensor",
+            "health_status": "Warning (High Submersion)",
+            "health_pct": 91.2,
+            "battery_v": 12.1,
+            "signal_dbm": -72,
+            "flow_speed_ms": round(random.uniform(3.1, 3.7), 2),
+            "discharge_m3s": round(random.uniform(4.4, 4.9), 2),
+            "water_depth_cm": round(random.uniform(44.0, 47.8), 1),
+            "hydraulic_head_m": 6.8,
+            "silt_buildup_pct": 84.5,
+            "surcharge_risk": "CRITICAL OVERFLOW",
+            "last_ping": "Live Pulse"
         },
-        "pipe_2_3": {
-            "capacity_pct": round(random.uniform(97.0, 100.0), 1),
-            "flow_rate_m3s": round(random.uniform(4.1, 4.6), 2),
-            "flow_velocity_ms": round(random.uniform(0.6, 0.9), 2),
-            "hydraulic_head_m": round(random.uniform(6.1, 6.7), 2),
-            "silt_buildup_pct": round(random.uniform(82.0, 91.0), 1),
-            "status": "Severe Surcharging (2D Spillage Active)",
-            "surcharging": True
-        },
-        "pipe_1_4": {
-            "capacity_pct": round(random.uniform(35.0, 42.0), 1),
-            "flow_rate_m3s": round(random.uniform(0.9, 1.2), 2),
-            "flow_velocity_ms": round(random.uniform(1.4, 1.8), 2),
-            "hydraulic_head_m": round(random.uniform(1.4, 1.7), 2),
-            "silt_buildup_pct": round(random.uniform(12.0, 18.0), 1),
-            "status": "Nominal Gravity Clearance",
-            "surcharging": False
-        },
-        "pipe_4_3": {
-            "capacity_pct": round(random.uniform(40.0, 48.0), 1),
-            "flow_rate_m3s": round(random.uniform(1.1, 1.4), 2),
-            "flow_velocity_ms": round(random.uniform(1.5, 1.9), 2),
-            "hydraulic_head_m": round(random.uniform(1.6, 1.9), 2),
-            "silt_buildup_pct": round(random.uniform(15.0, 22.0), 1),
-            "status": "Nominal Gravity Clearance",
-            "surcharging": False
-        },
-        "pipe_0_4": {
-            "capacity_pct": round(random.uniform(28.0, 34.0), 1),
-            "flow_rate_m3s": round(random.uniform(0.7, 1.0), 2),
-            "flow_velocity_ms": round(random.uniform(1.1, 1.4), 2),
-            "hydraulic_head_m": round(random.uniform(1.1, 1.3), 2),
-            "silt_buildup_pct": round(random.uniform(10.0, 14.0), 1),
-            "status": "Nominal Flow",
-            "surcharging": False
+        "PUMP-01": {
+            "name": "Municipal Aux Sump Station",
+            "health_status": "Ready / Active Standby",
+            "health_pct": 99.1,
+            "battery_v": 24.2,
+            "signal_dbm": -58,
+            "flow_speed_ms": 0.0,
+            "discharge_m3s": 0.0,
+            "water_depth_cm": 12.0,
+            "hydraulic_head_m": 1.1,
+            "silt_buildup_pct": 8.0,
+            "surcharge_risk": "STANDBY",
+            "last_ping": "Live Sync"
         }
     }
