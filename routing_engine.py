@@ -1,5 +1,6 @@
 import networkx as nx
 import math
+import random
 
 CLEARANCE_LIMITS = {
     "bike": 10.0,
@@ -8,7 +9,6 @@ CLEARANCE_LIMITS = {
     "ambulance": 35.0
 }
 
-# Surface street alignments (2D Overland)
 DETAILED_STREET_GEOMETRIES = {
     "street_0_1": [
         [17.4400, 78.4900], [17.4415, 78.4918], [17.4430, 78.4935], [17.4450, 78.4950]
@@ -30,47 +30,91 @@ DETAILED_STREET_GEOMETRIES = {
     ]
 }
 
-# Subsurface 1D drainage conduit trunks & underground culverts
 DRAINAGE_SEWER_TRUNKS = {
     "pipe_0_1": {
         "diameter_mm": 1200,
-        "type": "Reinforced Concrete Pipe",
+        "material": "Reinforced Concrete Pipe (RCP)",
+        "inflow_zone": "Residential Basin",
         "coords": [[17.4401, 78.4902], [17.4416, 78.4920], [17.4431, 78.4937], [17.4451, 78.4952]]
     },
     "pipe_1_2": {
         "diameter_mm": 1800,
-        "type": "Primary Storm Drain Trunk",
+        "material": "High-Density Polyethylene (HDPE)",
+        "inflow_zone": "Commercial Trunk Junction",
         "coords": [[17.4451, 78.4952], [17.4471, 78.4972], [17.4486, 78.4987], [17.4501, 78.5002]]
     },
     "pipe_2_3": {
-        "diameter_mm": 2200,
-        "type": "Lowland Culvert Outfall Trunk",
+        "diameter_mm": 2400,
+        "material": "Precast Box Culvert Conduits",
+        "inflow_zone": "Lowland Depressed Underpass",
         "coords": [[17.4501, 78.5002], [17.4521, 78.5022], [17.4536, 78.5037], [17.4551, 78.5052]]
     },
     "pipe_1_4": {
         "diameter_mm": 1000,
-        "type": "Gravity Auxiliary Collector",
+        "material": "Vitrified Clay Conduit",
+        "inflow_zone": "Eastern Diversion Flume",
         "coords": [[17.4451, 78.4952], [17.4446, 78.5022], [17.4449, 78.5067], [17.4451, 78.5102]]
     },
     "pipe_4_3": {
-        "diameter_mm": 1400,
-        "type": "Bypass Diversion Conduit",
+        "diameter_mm": 1500,
+        "material": "Reinforced Concrete Pipe (RCP)",
+        "inflow_zone": "Outer Ring Bypass Channel",
         "coords": [[17.4451, 78.5102], [17.4491, 78.5092], [17.4526, 78.5077], [17.4551, 78.5052]]
     },
     "pipe_0_4": {
         "diameter_mm": 900,
-        "type": "Lateral Collector",
+        "material": "Corrugated Steel Storm Sewer",
+        "inflow_zone": "Southern Perimeter Interceptor",
         "coords": [[17.4401, 78.4902], [17.4396, 78.5002], [17.4411, 78.5067], [17.4451, 78.5102]]
     }
 }
 
-# Subsurface Inspection Chambers & Manholes
 SUB_SURFACE_MANHOLES = [
-    {"id": "MH-01", "name": "Residential Intake Manhole", "coords": [17.4401, 78.4902], "depth_m": 3.2, "type": "Drop Manhole"},
-    {"id": "MH-02", "name": "Market Junction Collector Vault", "coords": [17.4451, 78.4952], "depth_m": 4.5, "type": "Junction Vault"},
-    {"id": "MH-03", "name": "Lowland Underpass Sump Manhole", "coords": [17.4501, 78.5002], "depth_m": 6.8, "type": "Heavy Surcharge Pit"},
-    {"id": "MH-04", "name": "Hospital Sector Main Outfall", "coords": [17.4551, 78.5052], "depth_m": 5.1, "type": "Discharge Outfall"},
-    {"id": "MH-05", "name": "Bypass Trunk Diversion Chamber", "coords": [17.4451, 78.5102], "depth_m": 3.8, "type": "Auxiliary Chamber"}
+    {
+        "id": "MH-01",
+        "name": "Residential Sump Chamber",
+        "coords": [17.4401, 78.4902],
+        "depth_m": 3.4,
+        "gas_ppm_h2s": 4.2,
+        "water_level_m": 1.2,
+        "cover_status": "Secure"
+    },
+    {
+        "id": "MH-02",
+        "name": "Market Junction Inspection Vault",
+        "coords": [17.4451, 78.4952],
+        "depth_m": 4.8,
+        "gas_ppm_h2s": 14.8,
+        "water_level_m": 3.9,
+        "cover_status": "Surcharging Warning"
+    },
+    {
+        "id": "MH-03",
+        "name": "Lowland Underpass Deep Sump Pit",
+        "coords": [17.4501, 78.5002],
+        "depth_m": 7.2,
+        "gas_ppm_h2s": 28.6,
+        "water_level_m": 7.0,
+        "cover_status": "OVERFLOWING (2D Spillage)"
+    },
+    {
+        "id": "MH-04",
+        "name": "Hospital Outfall Gate Chamber",
+        "coords": [17.4551, 78.5052],
+        "depth_m": 5.4,
+        "gas_ppm_h2s": 8.1,
+        "water_level_m": 2.4,
+        "cover_status": "Free Discharge"
+    },
+    {
+        "id": "MH-05",
+        "name": "Ring Road Bypass Diversion Chamber",
+        "coords": [17.4451, 78.5102],
+        "depth_m": 4.1,
+        "gas_ppm_h2s": 3.5,
+        "water_level_m": 1.4,
+        "cover_status": "Secure"
+    }
 ]
 
 def build_city_graph():
