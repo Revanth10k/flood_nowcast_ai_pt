@@ -15,7 +15,8 @@
     .sensor-pulse-critical { background: #ef4444; border: 2px solid #fff; box-shadow: 0 0 15px #ef4444; }
     .sensor-pulse-nominal { background: #10b981; border: 2px solid #fff; box-shadow: 0 0 10px #10b981; }
     .pump-pin { background: #6366f1; border: 2px solid #fff; box-shadow: 0 0 12px #6366f1; }
-    .manhole-pin { background: #0ea5e9; border: 2px solid #fff; box-shadow: 0 0 10px #0284c7; }
+    .manhole-pin-critical { background: #ef4444; border: 2px solid #fff; box-shadow: 0 0 12px #dc2626; animation: bounce 1.4s infinite; }
+    .manhole-pin-nominal { background: #0284c7; border: 2px solid #fff; box-shadow: 0 0 8px #0284c7; }
     .victim-pin-medical { background: #dc2626; border: 2px solid #fff; box-shadow: 0 0 14px #dc2626; animation: bounce 1.2s infinite; }
     .victim-pin-stuck { background: #f59e0b; border: 2px solid #fff; box-shadow: 0 0 12px #f59e0b; }
     .victim-pin-essentials { background: #0284c7; border: 2px solid #fff; box-shadow: 0 0 10px #0284c7; }
@@ -32,7 +33,7 @@
           <i class="fa-solid fa-shield-halved"></i>
         </div>
         <h2 class="text-2xl font-black tracking-tight text-white">HydroAI Portal</h2>
-        <p class="text-xs text-slate-400">SIH 26085 • 1D-2D Coupled Hydrology & Municipal Dispatch</p>
+        <p class="text-xs text-slate-400">SIH 26085 • 1D-2D Coupled Hydrology & Municipal SCADA</p>
       </div>
 
       <div class="grid grid-cols-3 gap-1.5 p-1 bg-slate-900 rounded-xl border border-slate-800 text-[11px] font-bold">
@@ -68,7 +69,7 @@
   </div>
 
   <!-- ================= SIDEBAR ================= -->
-  <aside class="w-[430px] glass-panel flex flex-col justify-between shadow-2xl z-[1000] border-r border-slate-800 p-4 overflow-y-auto">
+  <aside class="w-[440px] glass-panel flex flex-col justify-between shadow-2xl z-[1000] border-r border-slate-800 p-4 overflow-y-auto">
     <div class="space-y-4">
       <div class="border-b border-slate-800 pb-2.5 flex items-center justify-between">
         <div>
@@ -130,71 +131,57 @@
         </div>
       </div>
 
-      <!-- ================= MUNICIPAL ADMIN PANEL (1D/2D COUPLED HYDRAULICS) ================= -->
-      <div id="officialControls" class="hidden space-y-3.5">
+      <!-- ================= MUNICIPAL ADMIN PANEL (AUTOMATED 1D/2D SCADA) ================= -->
+      <div id="officialControls" class="hidden space-y-3">
         
-        <!-- 1D/2D Status Banner -->
-        <div class="bg-gradient-to-r from-indigo-950/70 to-slate-900 border border-indigo-500/50 p-3 rounded-xl flex items-center gap-3">
-          <i class="fa-solid fa-layer-group text-indigo-400 text-2xl"></i>
-          <div>
-            <div class="text-xs font-bold text-indigo-300">Coupled 1D-2D Hydro Dynamic Telemetry</div>
-            <div class="text-[10px] text-slate-400">1D Subsurface Culverts & 2D Overland Runoff Mapping</div>
-          </div>
-        </div>
-
-        <!-- 1D Subsurface Pipe Telemetry Feed -->
-        <div class="bg-slate-900/90 p-3.5 rounded-xl border border-slate-800 space-y-2.5 text-xs">
-          <div class="flex items-center justify-between border-b border-slate-800 pb-1.5">
-            <span class="font-bold text-sky-400 uppercase tracking-wider text-[11px]"><i class="fa-solid fa-network-wired text-sky-400 mr-1"></i> Subsurface 1D Pipes (Underground)</span>
-            <span class="bg-sky-950 text-sky-300 border border-sky-700 text-[9px] px-1.5 py-0.5 rounded font-mono">SCADA LINKED</span>
-          </div>
-          <div id="pipeTelemetryList" class="space-y-2 max-h-[160px] overflow-y-auto pr-1">
-            <!-- Dynamic pipe telemetry populated by JS -->
-          </div>
-        </div>
-
-        <!-- SCADA Live Simulation Controls -->
-        <div class="bg-slate-900/90 p-3.5 rounded-xl border border-slate-800 space-y-2.5 text-xs">
-          <div class="flex items-center justify-between border-b border-slate-800 pb-1.5">
-            <span class="font-bold text-indigo-400 uppercase tracking-wider text-[11px]"><i class="fa-solid fa-tower-broadcast text-indigo-400"></i> Hydraulic Boundary Controls</span>
-          </div>
-
-          <div class="space-y-2 pt-1">
+        <!-- Live Hydrology Status Banner -->
+        <div class="bg-gradient-to-r from-sky-950/80 to-slate-900 border border-sky-500/40 p-3 rounded-xl flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <i class="fa-solid fa-tower-observation text-sky-400 text-2xl"></i>
             <div>
-              <div class="flex justify-between text-[11px] mb-1 font-medium">
-                <span class="text-slate-300">Surface Rain Intensity (2D)</span>
-                <span id="rainVal" class="text-cyan-400 font-bold">80 mm/hr</span>
-              </div>
-              <input type="range" id="rainInput" min="10" max="150" step="5" value="80" class="w-full accent-cyan-400 cursor-pointer h-1.5 bg-slate-700 rounded-lg appearance-none" />
-            </div>
-
-            <div class="flex items-center justify-between pt-1 border-t border-slate-800 text-[11px]">
-              <label for="drainClog" class="text-slate-300 cursor-pointer flex items-center gap-1.5">
-                <i class="fa-solid fa-triangle-exclamation text-amber-400"></i> Clog Subsurface Drains (1D Failover)
-              </label>
-              <input type="checkbox" id="drainClog" checked class="accent-amber-400 w-4 h-4 cursor-pointer" />
+              <div class="text-xs font-bold text-sky-300">Automated 1D/2D SCADA Active</div>
+              <div class="text-[10px] text-slate-400">Autonomous Sensor Telemetry & Inundation Monitoring</div>
             </div>
           </div>
+          <span class="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-700 animate-pulse">LIVE</span>
+        </div>
 
-          <div class="grid grid-cols-2 gap-2 pt-1">
-            <div class="bg-slate-950 p-2 rounded-lg border border-slate-800">
-              <div class="text-slate-400 text-[9px]">Surface 2D Underpass Inundation</div>
-              <div id="sensorUnderpass" class="text-sm font-black text-rose-400 mt-0.5">44.8 cm</div>
-            </div>
-            <div class="bg-slate-950 p-2 rounded-lg border border-slate-800">
-              <div class="text-slate-400 text-[9px]">1D Subsurface Peak Discharge</div>
-              <div id="sensorDischarge" class="text-sm font-black text-emerald-400 mt-0.5">2.8 m³/s</div>
-            </div>
+        <!-- Automated Live Hydrology Metrics -->
+        <div class="grid grid-cols-3 gap-2">
+          <div class="bg-slate-900 p-2.5 rounded-xl border border-slate-800 text-center">
+            <div class="text-slate-400 text-[9px]">Precipitation Radar</div>
+            <div id="autoRainRate" class="text-xs font-black text-cyan-400 mt-1">86.4 mm/h</div>
           </div>
-
-          <div class="flex justify-between items-center text-[10px] pt-1 border-t border-slate-800">
-            <span class="text-slate-300 font-semibold">Auxiliary Sump Pumps:</span>
-            <button id="pumpToggleBtn" onclick="toggleAuxPumps()" class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded font-bold text-[10px]">Deploy Aux Pump</button>
+          <div class="bg-slate-900 p-2.5 rounded-xl border border-slate-800 text-center">
+            <div class="text-slate-400 text-[9px]">Underpass 2D Head</div>
+            <div id="autoUnderpassDepth" class="text-xs font-black text-rose-400 mt-1">45.2 cm</div>
+          </div>
+          <div class="bg-slate-900 p-2.5 rounded-xl border border-slate-800 text-center">
+            <div class="text-slate-400 text-[9px]">1D Subsurface Flow</div>
+            <div id="autoDischarge" class="text-xs font-black text-emerald-400 mt-1">12.6 m³/s</div>
           </div>
         </div>
 
-        <!-- Municipal Emergency Clearance Controls -->
-        <div class="bg-slate-900/90 p-3.5 rounded-xl border border-slate-800 space-y-2 text-xs">
+        <!-- Detailed Sewage & Pipe Sensor Readings -->
+        <div class="bg-slate-900/90 p-3 rounded-xl border border-slate-800 space-y-2 text-xs">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-1.5">
+            <span class="font-bold text-sky-400 uppercase tracking-wider text-[11px]"><i class="fa-solid fa-network-wired mr-1"></i> Subsurface 1D Conduits & Sewers</span>
+            <button onclick="fetchMunicipalDrainageNetwork()" class="text-[10px] text-sky-300 hover:text-sky-200"><i class="fa-solid fa-arrows-rotate"></i> Sync</button>
+          </div>
+          <div id="pipeTelemetryList" class="space-y-2 max-h-[170px] overflow-y-auto pr-1"></div>
+        </div>
+
+        <!-- Manhole Sump & Inflow Chamber Readings -->
+        <div class="bg-slate-900/90 p-3 rounded-xl border border-slate-800 space-y-2 text-xs">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-1.5">
+            <span class="font-bold text-amber-400 uppercase tracking-wider text-[11px]"><i class="fa-solid fa-circle-dot mr-1"></i> Manhole Sump Telemetry</span>
+            <span class="text-[9px] text-slate-400">H₂S Gas & Surcharge Level</span>
+          </div>
+          <div id="manholeTelemetryList" class="space-y-1.5 max-h-[140px] overflow-y-auto pr-1"></div>
+        </div>
+
+        <!-- Emergency Clearances -->
+        <div class="bg-slate-900/90 p-3 rounded-xl border border-slate-800 space-y-2 text-xs">
           <span class="font-bold text-slate-300 text-[11px] uppercase tracking-wider block border-b border-slate-800 pb-1">Emergency Area Clearances</span>
           <div class="flex items-center justify-between text-slate-300 text-[11px]">
             <span>Lowland Underpass Zone</span>
@@ -208,7 +195,7 @@
       </div>
     </div>
 
-    <!-- Output Telemetry Card (Only visible in User / Route modes) -->
+    <!-- Output Telemetry Card (Only for User navigation) -->
     <div id="routeOutput" class="hidden mt-2 bg-slate-900/95 p-3.5 rounded-xl border border-slate-700 text-xs shadow-2xl">
       <div class="flex justify-between mb-2">
         <span class="font-bold text-emerald-400"><i class="fa-solid fa-circle-check"></i> Safe Route Calculated</span>
@@ -228,8 +215,7 @@
 
   <script>
     let currentRole = "user";
-    let liveSimRain = 80.0;
-    let auxPumpActive = false;
+    let autoRefreshInterval = null;
 
     const map = L.map('map', { zoomControl: true }).setView([17.4475, 78.5000], 14);
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
@@ -245,9 +231,9 @@
     let endMarker = L.marker([17.4550, 78.5050], { draggable: true }).addTo(map);
 
     const iotStations = [
-      { id: "SN-01", name: "1D Subsurface Flow Node", type: "depth_sensor", coords: [17.4410, 78.4910], baseDepth: 6.2 },
-      { id: "SN-02", name: "2D Surface Underpass Sensor", type: "depth_sensor", coords: [17.4495, 78.4990], baseDepth: 44.8 },
-      { id: "PUMP-01", name: "Municipal Aux Pump", type: "pump_station", coords: [17.4480, 78.5020] }
+      { id: "SN-01", name: "1D Subsurface Flow Node", type: "depth_sensor", coords: [17.4410, 78.4910] },
+      { id: "SN-02", name: "2D Surface Underpass Sensor", type: "depth_sensor", coords: [17.4495, 78.4990] },
+      { id: "PUMP-01", name: "Municipal Aux Sump Pump", type: "pump_station", coords: [17.4480, 78.5020] }
     ];
 
     startMarker.on('dragend', () => { if (currentRole === "user") computeSafeTransit(); });
@@ -268,6 +254,7 @@
 
     function enterAsUser() {
       currentRole = "user";
+      clearInterval(autoRefreshInterval);
       document.getElementById('roleLabel').innerText = "Public User View";
       ['responderControls', 'officialControls'].forEach(id => document.getElementById(id).classList.add('hidden'));
       document.getElementById('userControls').classList.remove('hidden');
@@ -286,6 +273,7 @@
     function handleResponderLogin(e) {
       e.preventDefault();
       currentRole = "responder";
+      clearInterval(autoRefreshInterval);
       document.getElementById('roleLabel').innerText = "First Responder Dispatch";
       ['userControls', 'officialControls'].forEach(id => document.getElementById(id).classList.add('hidden'));
       document.getElementById('responderControls').classList.remove('hidden');
@@ -302,7 +290,7 @@
     function handleOfficialLogin(e) {
       e.preventDefault();
       currentRole = "official";
-      document.getElementById('roleLabel').innerText = "Municipal Admin (1D-2D Coupled Hydrology)";
+      document.getElementById('roleLabel').innerText = "Municipal Admin (1D-2D Coupled SCADA)";
       ['userControls', 'responderControls'].forEach(id => document.getElementById(id).classList.add('hidden'));
       document.getElementById('officialControls').classList.remove('hidden');
       document.getElementById('authModal').classList.add('hidden');
@@ -319,35 +307,49 @@
 
       updateFloodLayer();
       fetchMunicipalDrainageNetwork();
+
+      // Autonomous SCADA polling every 4 seconds
+      clearInterval(autoRefreshInterval);
+      autoRefreshInterval = setInterval(() => {
+        if (currentRole === "official") {
+          updateFloodLayer();
+          fetchMunicipalDrainageNetwork();
+        }
+      }, 4000);
     }
 
     async function fetchMunicipalDrainageNetwork() {
-      const rain = parseFloat(document.getElementById('rainInput').value);
-      const clogged = document.getElementById('drainClog').checked;
-
       try {
-        const res = await fetch(`/api/municipal/drainage-network?rain_rate_mm=${rain}&drain_clogged=${clogged}`);
+        const res = await fetch("/api/municipal/drainage-network");
         const data = await res.json();
+
+        // Update telemetry dashboard numbers
+        document.getElementById('autoRainRate').innerText = `${data.scada_summary.surface_rain_detected_mm} mm/h`;
+        document.getElementById('autoUnderpassDepth').innerText = `${data.scada_summary.underpass_2d_depth_cm} cm`;
+        document.getElementById('autoDischarge').innerText = `${data.scada_summary.subsurface_total_flow_m3s} m³/s`;
 
         drainagePipesLayer.clearLayers();
         manholesLayer.clearLayers();
 
-        // Render 1D Subsurface Pipes with Dash-Array indicating underground flow
+        // Render Subsurface Conduit Pipes
         L.geoJSON(data.pipes, {
           style: (f) => ({
-            color: f.properties.surcharging ? '#dc2626' : f.properties.capacity_utilization > 70 ? '#f59e0b' : '#38bdf8',
+            color: f.properties.surcharging ? '#ef4444' : f.properties.capacity_utilization > 60 ? '#f59e0b' : '#38bdf8',
             weight: 6,
             dashArray: '8, 8',
             opacity: 0.95
           }),
           onEachFeature: (f, layer) => {
+            const p = f.properties;
             layer.bindPopup(`
               <div class="text-xs p-1">
-                <div class="font-bold text-sky-400">1D Subsurface Conduit (${f.properties.pipe_id})</div>
-                <div><b>Type:</b> ${f.properties.pipe_type} (${f.properties.diameter_mm} mm)</div>
-                <div><b>Capacity Utilization:</b> ${f.properties.capacity_utilization}%</div>
-                <div><b>Discharge:</b> ${f.properties.discharge_m3s} m³/s</div>
-                <div><b>Status:</b> ${f.properties.status}</div>
+                <div class="font-bold text-sky-400">1D Subsurface Conduit (${p.pipe_id})</div>
+                <div><b>Inflow Zone:</b> ${p.inflow_zone}</div>
+                <div><b>Material:</b> ${p.material} (${p.diameter_mm} mm)</div>
+                <div><b>Capacity Load:</b> ${p.capacity_utilization}%</div>
+                <div><b>Discharge:</b> ${p.discharge_m3s} m³/s | <b>Velocity:</b> ${p.flow_velocity_ms} m/s</div>
+                <div><b>Hydraulic Head:</b> ${p.hydraulic_head_m} m | <b>Silt Index:</b> ${p.silt_buildup_pct}%</div>
+                <div><b>Status:</b> ${p.status}</div>
               </div>
             `);
           }
@@ -355,19 +357,22 @@
 
         // Render Subsurface Manholes
         data.manholes.forEach(mh => {
+          const isCritical = mh.surcharge_risk === "CRITICAL";
           const mhIcon = L.divIcon({
-            html: `<div class="sensor-pin manhole-pin" style="width: 24px; height: 24px;"><i class="fa-solid fa-circle-dot text-[10px]"></i></div>`
+            html: `<div class="sensor-pin ${isCritical ? 'manhole-pin-critical' : 'manhole-pin-nominal'}" style="width: 24px; height: 24px;"><i class="fa-solid fa-circle-dot text-[10px]"></i></div>`
           });
           L.marker(mh.coords, { icon: mhIcon }).bindPopup(`
             <div class="text-xs p-1">
               <div class="font-bold text-cyan-400">${mh.name} (${mh.id})</div>
-              <div><b>Type:</b> ${mh.type}</div>
-              <div><b>Depth:</b> ${mh.depth_m} meters underground</div>
+              <div><b>Shaft Depth:</b> ${mh.depth_m} meters</div>
+              <div><b>Current Water Level:</b> ${mh.water_level_m} m</div>
+              <div><b>H₂S Toxic Gas:</b> ${mh.gas_ppm_h2s} ppm</div>
+              <div><b>Chamber Status:</b> ${mh.cover_status}</div>
             </div>
           `).addTo(manholesLayer);
         });
 
-        // Populate Sidebar Feed
+        // Populate Pipe Telemetry List
         const pipeFeed = document.getElementById('pipeTelemetryList');
         pipeFeed.innerHTML = "";
         data.pipes.features.forEach(pf => {
@@ -376,11 +381,11 @@
           div.className = "bg-slate-950 p-2 rounded border border-slate-800 flex justify-between items-center";
           div.innerHTML = `
             <div>
-              <div class="font-bold text-slate-200">${p.pipe_id} (${p.pipe_type})</div>
-              <div class="text-[10px] text-slate-400">Flow: ${p.discharge_m3s} m³/s | Dia: ${p.diameter_mm}mm</div>
+              <div class="font-bold text-slate-200 text-[11px]">${p.pipe_id} • ${p.inflow_zone}</div>
+              <div class="text-[10px] text-slate-400">Head: ${p.hydraulic_head_m}m | Flow: ${p.discharge_m3s} m³/s | Silt: ${p.silt_buildup_pct}%</div>
             </div>
             <div class="text-right">
-              <span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${p.surcharging ? 'bg-rose-950 text-rose-400 border border-rose-800' : 'bg-emerald-950 text-emerald-400 border border-emerald-800'}">
+              <span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${p.surcharging ? 'bg-rose-950 text-rose-400 border border-rose-800' : 'bg-sky-950 text-sky-400 border border-sky-800'}">
                 ${p.capacity_utilization}%
               </span>
             </div>
@@ -388,33 +393,25 @@
           pipeFeed.appendChild(div);
         });
 
-      } catch (err) { console.error("Error fetching drainage network:", err); }
-    }
+        // Populate Manhole Telemetry List
+        const manholeFeed = document.getElementById('manholeTelemetryList');
+        manholeFeed.innerHTML = "";
+        data.manholes.forEach(mh => {
+          const div = document.createElement('div');
+          div.className = "bg-slate-950 p-1.5 rounded border border-slate-800 flex justify-between items-center text-[10px]";
+          div.innerHTML = `
+            <div>
+              <span class="font-bold text-slate-200">${mh.id} (${mh.name})</span>
+              <div class="text-slate-400">Water: ${mh.water_level_m}m/${mh.depth_m}m | H₂S: ${mh.gas_ppm_h2s} ppm</div>
+            </div>
+            <span class="px-1.5 py-0.5 rounded font-bold ${mh.surcharge_risk === 'CRITICAL' ? 'bg-rose-950 text-rose-400 border border-rose-800' : 'bg-emerald-950 text-emerald-400 border border-emerald-800'}">
+              ${mh.surcharge_risk}
+            </span>
+          `;
+          manholeFeed.appendChild(div);
+        });
 
-    function renderOfficialSensors() {
-      officialSensorLayer.clearLayers();
-      const rain = parseFloat(document.getElementById('rainInput').value);
-      const clogged = document.getElementById('drainClog').checked;
-
-      iotStations.forEach(station => {
-        if (station.type === "depth_sensor") {
-          const liveDepth = (station.baseDepth * (rain / 80) * (clogged ? 1.4 : 1.0) * (auxPumpActive ? 0.75 : 1.0)).toFixed(1);
-          const customIcon = L.divIcon({ html: `<div class="sensor-pin ${liveDepth > 25 ? 'sensor-pulse-critical' : 'sensor-pulse-nominal'}" style="width: 28px; height: 28px;"><i class="fa-solid fa-water-ladder text-xs"></i></div>` });
-          L.marker(station.coords, { icon: customIcon }).bindPopup(`<b>${station.name}</b><br/>Depth: ${liveDepth} cm`).addTo(officialSensorLayer);
-        } else {
-          const customIcon = L.divIcon({ html: `<div class="sensor-pin pump-pin" style="width: 30px; height: 30px;"><i class="fa-solid fa-gears text-xs"></i></div>` });
-          L.marker(station.coords, { icon: customIcon }).bindPopup(`<b>${station.name}</b><br/>Status: Active`).addTo(officialSensorLayer);
-        }
-      });
-    }
-
-    function toggleAuxPumps() {
-      auxPumpActive = !auxPumpActive;
-      const btn = document.getElementById('pumpToggleBtn');
-      btn.innerText = auxPumpActive ? "Deactivate Aux" : "Deploy Aux Pump";
-      btn.className = auxPumpActive ? "px-2.5 py-1 bg-rose-600 text-white rounded font-bold text-[10px]" : "px-2.5 py-1 bg-indigo-600 text-white rounded font-bold text-[10px]";
-      updateFloodLayer();
-      if (currentRole === "official") fetchMunicipalDrainageNetwork();
+      } catch (err) { console.error("Error fetching drainage telemetry:", err); }
     }
 
     async function sendSOSBeacon(viaSms = false) {
@@ -461,18 +458,8 @@
     async function toggleAreaAccess(sector, granted) { await fetch("/api/municipal/area-access", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sector_name: sector, access_granted: granted }) }); }
 
     async function updateFloodLayer() {
-      const rain = currentRole === "official" ? parseFloat(document.getElementById('rainInput').value) : liveSimRain;
-      const clogged = currentRole === "official" ? document.getElementById('drainClog').checked : true;
-
-      if (currentRole === "official") {
-        document.getElementById('rainVal').innerText = `${rain} mm/hr`;
-        document.getElementById('sensorUnderpass').innerText = `${(rain * 0.55 * (clogged ? 1.5 : 1.0) * (auxPumpActive ? 0.7 : 1.0)).toFixed(1)} cm`;
-        document.getElementById('sensorDischarge').innerText = `${Math.max(0.8, (rain * 0.035)).toFixed(1)} m³/s`;
-        renderOfficialSensors();
-      }
-
       try {
-        const res = await fetch(`/api/nowcast?rain_rate_mm=${rain}&forecast_min=60&drain_clogged=${clogged}&coupled_1d2d_active=true`);
+        const res = await fetch(`/api/nowcast?rain_rate_mm=85.0&forecast_min=60&drain_clogged=true&coupled_1d2d_active=true`);
         const data = await res.json();
         streetNetworkLayer.clearLayers();
         L.geoJSON(data, {
@@ -484,13 +471,11 @@
     async function computeSafeTransit() {
       const v = document.getElementById('vehicleSelect') ? document.getElementById('vehicleSelect').value : "sedan";
       const start = startMarker.getLatLng(), end = endMarker.getLatLng();
-      const rain = 80.0;
-      const clogged = true;
 
       try {
         const res = await fetch("/api/route", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ start_coords: [start.lat, start.lng], end_coords: [end.lat, end.lng], vehicle_type: v, rain_rate_mm: rain, drain_clogged: clogged, coupled_1d2d_active: true })
+          body: JSON.stringify({ start_coords: [start.lat, start.lng], end_coords: [end.lat, end.lng], vehicle_type: v, rain_rate_mm: 85.0, drain_clogged: true, coupled_1d2d_active: true })
         });
         const data = await res.json();
         safeRouteLayer.clearLayers();
@@ -504,16 +489,6 @@
       } catch (err) {}
     }
 
-    document.getElementById('rainInput')?.addEventListener('input', () => { 
-      updateFloodLayer(); 
-      if (currentRole === "official") fetchMunicipalDrainageNetwork(); 
-    });
-    
-    document.getElementById('drainClog')?.addEventListener('change', () => { 
-      updateFloodLayer(); 
-      if (currentRole === "official") fetchMunicipalDrainageNetwork(); 
-    });
-    
     document.getElementById('vehicleSelect')?.addEventListener('change', () => { 
       if (currentRole === "user") computeSafeTransit(); 
     });
