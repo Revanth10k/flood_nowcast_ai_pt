@@ -5,7 +5,8 @@ CLEARANCE_LIMITS = {
     "bike": 10.0,
     "sedan": 18.0,
     "suv": 30.0,
-    "ambulance": 35.0
+    "ambulance": 35.0,
+    "rescue_boat": 100.0
 }
 
 # Rich coordinate paths for city roads in Secunderabad
@@ -14,7 +15,7 @@ DETAILED_STREET_GEOMETRIES = {
         [17.4400, 78.4900], [17.4415, 78.4918], [17.4430, 78.4935], [17.4450, 78.4950]
     ],
     "street_1_2": [
-        [17.4450, 78.4950], [17.4470, 78.4970], [17.4485, 78.4985], [17.4500, 78.5000]
+        [17.4450, 78.4950], [17.4470, 78.4970], [17.4885, 78.4985], [17.4500, 78.5000]
     ],
     "street_2_3": [
         [17.4500, 78.5000], [17.4520, 78.5020], [17.4535, 78.5035], [17.4550, 78.5050]
@@ -100,13 +101,11 @@ def calculate_safe_route(start_node: int, end_node: int, vehicle_type: str, floo
     if start_node == end_node:
         end_node = (start_node + 2) % 5
 
-    # 1. Base route
     try:
         orig_path = nx.shortest_path(G_city, source=start_node, target=end_node, weight="length")
     except nx.NetworkXNoPath:
         orig_path = [start_node, end_node]
 
-    # 2. Inundation penalized route
     G_temp = G_city.copy()
     flooded_segments_avoided = 0
     max_flood_depth_on_route = 0.0
@@ -114,7 +113,7 @@ def calculate_safe_route(start_node: int, end_node: int, vehicle_type: str, floo
     for u, v, data in G_temp.edges(data=True):
         depth = flood_depths.get(data["street_key"], 0.0)
         if depth >= clearance:
-            G_temp[u][v]["weight"] = 1e9  # Road Blocked
+            G_temp[u][v]["weight"] = 1e9
             flooded_segments_avoided += 1
         else:
             penalty = 1.0 + (depth / clearance) ** 2 * 6.0
@@ -127,7 +126,6 @@ def calculate_safe_route(start_node: int, end_node: int, vehicle_type: str, floo
 
     safe_coords = extract_detailed_path_geometry(safe_path)
     
-    # Prepend and append dragged marker coordinates
     if raw_start and len(raw_start) == 2:
         safe_coords.insert(0, [float(raw_start[0]), float(raw_start[1])])
     if raw_end and len(raw_end) == 2:
