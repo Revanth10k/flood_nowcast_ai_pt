@@ -8,7 +8,7 @@ CLEARANCE_LIMITS = {
     "ambulance": 35.0
 }
 
-# Rich coordinate paths for city roads in Secunderabad
+# Surface street alignments (2D Overland)
 DETAILED_STREET_GEOMETRIES = {
     "street_0_1": [
         [17.4400, 78.4900], [17.4415, 78.4918], [17.4430, 78.4935], [17.4450, 78.4950]
@@ -29,6 +29,49 @@ DETAILED_STREET_GEOMETRIES = {
         [17.4400, 78.4900], [17.4395, 78.5000], [17.4410, 78.5065], [17.4450, 78.5100]
     ]
 }
+
+# Subsurface 1D drainage conduit trunks & underground culverts
+DRAINAGE_SEWER_TRUNKS = {
+    "pipe_0_1": {
+        "diameter_mm": 1200,
+        "type": "Reinforced Concrete Pipe",
+        "coords": [[17.4401, 78.4902], [17.4416, 78.4920], [17.4431, 78.4937], [17.4451, 78.4952]]
+    },
+    "pipe_1_2": {
+        "diameter_mm": 1800,
+        "type": "Primary Storm Drain Trunk",
+        "coords": [[17.4451, 78.4952], [17.4471, 78.4972], [17.4486, 78.4987], [17.4501, 78.5002]]
+    },
+    "pipe_2_3": {
+        "diameter_mm": 2200,
+        "type": "Lowland Culvert Outfall Trunk",
+        "coords": [[17.4501, 78.5002], [17.4521, 78.5022], [17.4536, 78.5037], [17.4551, 78.5052]]
+    },
+    "pipe_1_4": {
+        "diameter_mm": 1000,
+        "type": "Gravity Auxiliary Collector",
+        "coords": [[17.4451, 78.4952], [17.4446, 78.5022], [17.4449, 78.5067], [17.4451, 78.5102]]
+    },
+    "pipe_4_3": {
+        "diameter_mm": 1400,
+        "type": "Bypass Diversion Conduit",
+        "coords": [[17.4451, 78.5102], [17.4491, 78.5092], [17.4526, 78.5077], [17.4551, 78.5052]]
+    },
+    "pipe_0_4": {
+        "diameter_mm": 900,
+        "type": "Lateral Collector",
+        "coords": [[17.4401, 78.4902], [17.4396, 78.5002], [17.4411, 78.5067], [17.4451, 78.5102]]
+    }
+}
+
+# Subsurface Inspection Chambers & Manholes
+SUB_SURFACE_MANHOLES = [
+    {"id": "MH-01", "name": "Residential Intake Manhole", "coords": [17.4401, 78.4902], "depth_m": 3.2, "type": "Drop Manhole"},
+    {"id": "MH-02", "name": "Market Junction Collector Vault", "coords": [17.4451, 78.4952], "depth_m": 4.5, "type": "Junction Vault"},
+    {"id": "MH-03", "name": "Lowland Underpass Sump Manhole", "coords": [17.4501, 78.5002], "depth_m": 6.8, "type": "Heavy Surcharge Pit"},
+    {"id": "MH-04", "name": "Hospital Sector Main Outfall", "coords": [17.4551, 78.5052], "depth_m": 5.1, "type": "Discharge Outfall"},
+    {"id": "MH-05", "name": "Bypass Trunk Diversion Chamber", "coords": [17.4451, 78.5102], "depth_m": 3.8, "type": "Auxiliary Chamber"}
+]
 
 def build_city_graph():
     G = nx.Graph()
@@ -100,13 +143,11 @@ def calculate_safe_route(start_node: int, end_node: int, vehicle_type: str, floo
     if start_node == end_node:
         end_node = (start_node + 2) % 5
 
-    # 1. Base route
     try:
         orig_path = nx.shortest_path(G_city, source=start_node, target=end_node, weight="length")
     except nx.NetworkXNoPath:
         orig_path = [start_node, end_node]
 
-    # 2. Inundation penalized route
     G_temp = G_city.copy()
     flooded_segments_avoided = 0
     max_flood_depth_on_route = 0.0
@@ -114,7 +155,7 @@ def calculate_safe_route(start_node: int, end_node: int, vehicle_type: str, floo
     for u, v, data in G_temp.edges(data=True):
         depth = flood_depths.get(data["street_key"], 0.0)
         if depth >= clearance:
-            G_temp[u][v]["weight"] = 1e9  # Road Blocked
+            G_temp[u][v]["weight"] = 1e9
             flooded_segments_avoided += 1
         else:
             penalty = 1.0 + (depth / clearance) ** 2 * 6.0
@@ -127,7 +168,6 @@ def calculate_safe_route(start_node: int, end_node: int, vehicle_type: str, floo
 
     safe_coords = extract_detailed_path_geometry(safe_path)
     
-    # Prepend and append dragged marker coordinates
     if raw_start and len(raw_start) == 2:
         safe_coords.insert(0, [float(raw_start[0]), float(raw_start[1])])
     if raw_end and len(raw_end) == 2:
