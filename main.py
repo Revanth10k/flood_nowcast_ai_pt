@@ -7,7 +7,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import List, Optional, Dict
 
-from ai_engine import predict_street_depths, get_detailed_sewage_telemetry
+from ai_engine import predict_street_depths, get_detailed_sensor_telemetry
 from routing_engine import (
     calculate_safe_route, 
     find_nearest_node, 
@@ -94,25 +94,22 @@ def get_nowcast(rain_rate_mm: float = 85.0, forecast_min: int = 60, drain_clogge
 
 @app.get("/api/municipal/drainage-network")
 def get_drainage_network():
-    """
-    Automated real-time SCADA telemetry for the municipal sewer and drainage network.
-    Generates dynamic sensor readings on demand without requiring manual input calculation bars.
-    """
-    telemetry = get_detailed_sewage_telemetry()
+    sensor_telemetry = get_detailed_sensor_telemetry()
     pipes_geojson = []
+
+    pipe_load_map = {
+        "pipe_0_1": {"load": 64.2, "flow": 1.75, "speed": 1.35, "head": 2.2, "silt": 25.0, "surcharge": False},
+        "pipe_1_2": {"load": 96.5, "flow": 3.65, "speed": 2.85, "head": 4.5, "silt": 72.0, "surcharge": True},
+        "pipe_2_3": {"load": 99.1, "flow": 4.35, "speed": 0.75, "head": 6.4, "silt": 86.0, "surcharge": True},
+        "pipe_1_4": {"load": 38.0, "flow": 1.05, "speed": 1.60, "head": 1.5, "silt": 14.0, "surcharge": False},
+        "pipe_4_3": {"load": 44.5, "flow": 1.25, "speed": 1.70, "head": 1.7, "silt": 18.0, "surcharge": False},
+        "pipe_0_4": {"load": 31.0, "flow": 0.85, "speed": 1.25, "head": 1.2, "silt": 12.0, "surcharge": False}
+    }
 
     for pipe_key, meta in DRAINAGE_SEWER_TRUNKS.items():
         coords = meta["coords"]
         geojson_coords = [[pt[1], pt[0]] for pt in coords]
-        pipe_stats = telemetry.get(pipe_key, {
-            "capacity_pct": 50.0,
-            "flow_rate_m3s": 1.2,
-            "flow_velocity_ms": 1.4,
-            "hydraulic_head_m": 2.0,
-            "silt_buildup_pct": 20.0,
-            "status": "Nominal",
-            "surcharging": False
-        })
+        st = pipe_load_map.get(pipe_key, {"load": 40.0, "flow": 1.0, "speed": 1.2, "head": 1.5, "silt": 15.0, "surcharge": False})
         
         pipes_geojson.append({
             "type": "Feature",
@@ -125,35 +122,33 @@ def get_drainage_network():
                 "diameter_mm": meta["diameter_mm"],
                 "material": meta["material"],
                 "inflow_zone": meta["inflow_zone"],
-                "capacity_utilization": pipe_stats["capacity_pct"],
-                "discharge_m3s": pipe_stats["flow_rate_m3s"],
-                "flow_velocity_ms": pipe_stats["flow_velocity_ms"],
-                "hydraulic_head_m": pipe_stats["hydraulic_head_m"],
-                "silt_buildup_pct": pipe_stats["silt_buildup_pct"],
-                "status": pipe_stats["status"],
-                "surcharging": pipe_stats["surcharging"]
+                "capacity_utilization": st["load"],
+                "discharge_m3s": st["flow"],
+                "flow_velocity_ms": st["speed"],
+                "hydraulic_head_m": st["head"],
+                "silt_buildup_pct": st["silt"],
+                "surcharging": st["surcharge"]
             }
         })
 
-    # Add dynamic telemetry to manholes
     dynamic_manholes = []
     for mh in SUB_SURFACE_MANHOLES:
         mh_copy = dict(mh)
-        fluc = random.uniform(-0.15, 0.15)
+        fluc = round(random.uniform(-0.08, 0.08), 2)
         mh_copy["water_level_m"] = round(max(0.2, mh["water_level_m"] + fluc), 2)
-        mh_copy["gas_ppm_h2s"] = round(max(1.0, mh["gas_ppm_h2s"] + random.uniform(-0.8, 0.8)), 1)
+        mh_copy["gas_ppm_h2s"] = round(max(1.0, mh["gas_ppm_h2s"] + random.uniform(-0.5, 0.5)), 1)
         mh_copy["surcharge_risk"] = "CRITICAL" if (mh_copy["water_level_m"] / mh_copy["depth_m"] > 0.85) else "NOMINAL"
         dynamic_manholes.append(mh_copy)
 
     return {
         "pipes": {"type": "FeatureCollection", "features": pipes_geojson},
         "manholes": dynamic_manholes,
+        "sensors": sensor_telemetry,
         "scada_summary": {
-            "surface_rain_detected_mm": round(random.uniform(82.0, 89.0), 1),
-            "underpass_2d_depth_cm": round(random.uniform(43.5, 46.2), 1),
-            "subsurface_total_flow_m3s": round(random.uniform(11.8, 13.4), 2),
-            "active_surcharge_alarms": 2,
-            "pump_status": "Aux Standby Ready"
+            "surface_rain_detected_mm": 86.4,
+            "underpass_2d_depth_cm": 45.8,
+            "subsurface_total_flow_m3s": 12.9,
+            "active_surcharge_alarms": 2
         }
     }
 
