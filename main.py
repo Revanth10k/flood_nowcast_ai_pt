@@ -6,8 +6,14 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import List, Optional, Dict
 
-from ai_engine import predict_street_depths
-from routing_engine import calculate_safe_route, find_nearest_node, G_city
+from ai_engine import predict_street_depths, get_subsurface_sewer_telemetry
+from routing_engine import (
+    calculate_safe_route, 
+    find_nearest_node, 
+    G_city, 
+    DRAINAGE_SEWER_TRUNKS, 
+    SUB_SURFACE_MANHOLES
+)
 
 app = FastAPI(title="HydroAI Urban Flood Platform - SIH 26085")
 
@@ -79,11 +85,47 @@ def get_nowcast(rain_rate_mm: float = 80.0, forecast_min: int = 60, drain_clogge
             "properties": {
                 "street_name": f"{G_city.nodes[u]['name']} ↔ {G_city.nodes[v]['name']}",
                 "water_depth_cm": depth,
-                "drain_status": "Surcharged (Subsurface 1D Backup)" if drain_clogged and depth > 20 else "Nominal Flow"
+                "drain_status": "Surcharged (Subsurface 1D Backup)" if (drain_clogged and depth > 20) else "Nominal Flow"
             }
         })
 
     return {"type": "FeatureCollection", "features": features}
+
+@app.get("/api/municipal/drainage-network")
+def get_drainage_network(rain_rate_mm: float = 80.0, drain_clogged: bool = True):
+    """
+    Supplies complete 1D Subsurface Drainage & Sewer System Network telemetry to Municipal Admin.
+    """
+    telemetry = get_subsurface_sewer_telemetry(rain_rate_mm, drain_clogged)
+    pipes_geojson = []
+
+    for pipe_key, meta in DRAINAGE_SEWER_TRUNKS.items():
+        coords = meta["coords"]
+        geojson_coords = [[pt[1], pt[0]] for pt in coords]
+        pipe_stats = telemetry.get(pipe_key, {"capacity_pct": 50.0, "flow_rate_m3s": 1.2, "status": "Nominal", "surcharging": False})
+        
+        pipes_geojson.append({
+            "type": "Feature",
+            "geometry": {
+                "type": "LineString",
+                "coordinates": geojson_coords
+            },
+            "properties": {
+                "pipe_id": pipe_key,
+                "diameter_mm": meta["diameter_mm"],
+                "pipe_type": meta["type"],
+                "capacity_utilization": pipe_stats["capacity_pct"],
+                "discharge_m3s": pipe_stats["flow_rate_m3s"],
+                "status": pipe_stats["status"],
+                "surcharging": pipe_stats["surcharging"]
+            }
+        })
+
+    return {
+        "pipes": {"type": "FeatureCollection", "features": pipes_geojson},
+        "manholes": SUB_SURFACE_MANHOLES,
+        "telemetry_summary": telemetry
+    }
 
 @app.post("/api/route")
 def get_route(req: RouteRequest):
